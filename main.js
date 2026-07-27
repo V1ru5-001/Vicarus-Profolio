@@ -46,13 +46,26 @@
         onDone();
         return;
       }
+      /* GUARANTEE the panels disappear no matter what the animation
+         does: a hard timeout hides #pre and both shutters after the
+         slide should have finished. Prevents a stuck black panel
+         covering the top or bottom of the page. */
+      var forceHide = setTimeout(function () {
+        pre.style.display = 'none';
+        Array.prototype.forEach.call(shutters, function (s) { s.style.display = 'none'; });
+      }, 1400);
       gsap.timeline()
         .to(pre, { opacity: 0, duration: .28, delay: .22 })
         .set(pre, { display: 'none' })
         .to('.shut.t', { yPercent: -100, duration: .7, ease: 'expo.inOut' }, 0.3)
         .to('.shut.b', { yPercent: 100, duration: .7, ease: 'expo.inOut' }, 0.3)
         .set('.shut', { display: 'none' })
-        .add(onDone);
+        .add(function () {
+          clearTimeout(forceHide);
+          pre.style.display = 'none';
+          Array.prototype.forEach.call(shutters, function (s) { s.style.display = 'none'; });
+          onDone();
+        });
     }
 
     /* never strand the visitor */
@@ -149,11 +162,11 @@
     var head = $('head');
     var bursting = false;
 
-    function tear() {
+    function tear(count) {
       if (!head) return;
       var lines = head.querySelectorAll('.ln');
       Array.prototype.forEach.call(lines, function (l) {
-        var n = 2 + Math.floor(Math.random() * 3);
+        var n = count || (2 + Math.floor(Math.random() * 3));
         for (var i = 0; i < n; i++) {
           var bar = document.createElement('div');
           bar.className = 'slice';
@@ -167,6 +180,109 @@
     }
 
     if (!RM && head) {
+      /* elements whose middle letters scramble while distorted:
+         hero h1, every section h2, every project h3, contact .say */
+      var scrambleTargets = [];
+      (function collect() {
+        var h1 = head;
+        scrambleTargets.push(h1);
+        Array.prototype.push.apply(scrambleTargets, document.querySelectorAll('.lead h2'));
+        Array.prototype.push.apply(scrambleTargets, document.querySelectorAll('.proj h3'));
+        var say = document.querySelector('.say');
+        if (say) scrambleTargets.push(say);
+      })();
+
+      var GLCH = '!<>-_\\/[]{}=+*#%&@01234789';
+      var scrambleInt = null;
+      /* master clean copy per element, captured ONCE up front.
+         Restore always resets to this, so a scramble can never
+         leave an element stuck as symbols even if interrupted. */
+      var clean = new WeakMap();
+      scrambleTargets.forEach(function (el) { clean.set(el, el.innerHTML); });
+
+      /* Scramble middle letters of an element's TEXT only.
+         Always rebuilds from the clean master first, then walks
+         text nodes and swaps some non-edge letters for red symbols.
+         First & last letter of each word are preserved. */
+      function scrambleOnce(el) {
+        if (clean.has(el)) el.innerHTML = clean.get(el);   // start from clean each time
+
+        var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+        var nodes = [], n;
+        while ((n = walker.nextNode())) nodes.push(n);
+
+        nodes.forEach(function (node) {
+          if (!node.textContent.trim()) return;
+          var chars = node.textContent.split('');
+          var protect = {}, runStart = -1;
+          for (var i = 0; i <= chars.length; i++) {
+            var isSpace = i === chars.length || /\s/.test(chars[i]);
+            if (!isSpace && runStart === -1) runStart = i;
+            if (isSpace && runStart !== -1) {
+              protect[runStart] = true; protect[i - 1] = true; runStart = -1;
+            }
+          }
+          var html = '';
+          for (var j = 0; j < chars.length; j++) {
+            var c = chars[j];
+            if (/\s/.test(c) || protect[j] || Math.random() > 0.55) {
+              html += escapeChar(c);
+            } else {
+              html += '<i class="gl">' + escapeChar(GLCH[(Math.random() * GLCH.length) | 0]) + '</i>';
+            }
+          }
+          var span = document.createElement('span');
+          span.innerHTML = html;
+          if (node.parentNode) node.parentNode.replaceChild(span, node);
+        });
+      }
+
+      function escapeChar(c) {
+        return c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '&' ? '&amp;' : c;
+      }
+
+      /* restore: reset to the permanent clean master */
+      function restore(el) {
+        if (clean.has(el)) el.innerHTML = clean.get(el);
+      }
+
+      function lockDistorted() {
+        tear();
+        head.classList.add('scrambling');   // hide h1 ghosts during scramble
+        gsap.to('#burn', { opacity: .4, duration: .05, yoyo: true, repeat: 1 });
+        // cycle fast: re-scramble every ~70ms, skipping any element
+        // currently owned by the scroll-decode effect
+        scrambleTargets.forEach(function (el) { if (!el.__decoding) { restore(el); scrambleOnce(el); } });
+        scrambleInt = setInterval(function () {
+          scrambleTargets.forEach(function (el) { if (!el.__decoding) { restore(el); scrambleOnce(el); } });
+          if (Math.random() > 0.6) tear(1);
+        }, 70);
+      }
+
+      function freezeScramble() {
+        // stop cycling — the last scrambled set stays frozen
+        if (scrambleInt) { clearInterval(scrambleInt); scrambleInt = null; }
+      }
+
+      function unlockDistorted() {
+        freezeScramble();
+        head.classList.add('hit');
+        tear();
+        gsap.to('#burn', { opacity: .3, duration: .05, yoyo: true, repeat: 1 });
+        gsap.to('#screen', {
+          x: gsap.utils.random(-7, 7), skewX: gsap.utils.random(-1.4, 1.4),
+          duration: .05, repeat: 3, yoyo: true,
+          onComplete: function () {
+            gsap.set('#screen', { x: 0, skewX: 0 });
+            head.classList.remove('hit');
+            head.classList.remove('scrambling');   // restore h1 ghosts
+            // restore every target that isn't mid-decode
+            scrambleTargets.forEach(function (el) { if (!el.__decoding) restore(el); });
+            bursting = false;
+          }
+        });
+      }
+
       (function burst() {
         bursting = true;
         head.classList.add('hit');
@@ -178,22 +294,22 @@
           onComplete: function () {
             gsap.set('#screen', { x: 0, skewX: 0 });
             head.classList.remove('hit');
-            bursting = false;
+            lockDistorted();
+            /* hold distorted ~3s: cycle symbols for the first part,
+               freeze on one set, then snap back to clean text */
+            var hold = 3;
+            gsap.delayedCall(0.8, freezeScramble);       // cycle 0.8s, then freeze
+            gsap.delayedCall(hold, unlockDistorted);     // total ~3s distorted
           }
         });
-        gsap.delayedCall(gsap.utils.random(1.4, 3.6), burst);
+        /* next burst: 10–15s after this one starts */
+        gsap.delayedCall(gsap.utils.random(10, 15), burst);
       })();
 
-      /* micro-jitter so it never sits still */
-      var scr = $('screen'), jit = 0;
-      gsap.ticker.add(function () {
-        if (bursting) return;
-        if (jit > 0) { jit--; if (jit === 0) gsap.set(scr, { x: 0 }); return; }
-        if (Math.random() > 0.982) { gsap.set(scr, { x: (Math.random() - .5) * 2.4 }); jit = 3; }
-      });
-
-      gsap.fromTo('#roll', { top: '-120px' }, { top: '100%', duration: 5.5, repeat: -1, ease: 'none' });
-      gsap.to('#scan', { backgroundPositionY: '4px', repeat: -1, duration: .28, ease: 'none' });
+      /* ambient effects kept minimal — the page sits still between
+         bursts. Scanlines stay static (texture, no motion); the roll
+         band drifts slowly and faint. No page-wide micro-jitter. */
+      gsap.fromTo('#roll', { top: '-120px' }, { top: '100%', duration: 14, repeat: -1, ease: 'none', delay: 4 });
       gsap.to('.tick p', { xPercent: -100, repeat: -1, duration: 20, ease: 'none' });
     }
 
@@ -202,6 +318,8 @@
     /* ── section headings decode ── */
     var CH = '!<>-_\\/[]{}=+*^?#%01';
     function decode(el, final) {
+      el.__decoding = true;
+      el.textContent = final;          // clear any leftover scramble spans first
       var f = 0;
       var q = final.split('').map(function (c, i) {
         return { c: c, s: Math.floor(i * 1.9), e: Math.floor(i * 1.9) + 8 + Math.random() * 14 };
@@ -211,7 +329,7 @@
         el.textContent = q.map(function (o) {
           return f >= o.e ? o.c : (f >= o.s ? CH[(Math.random() * CH.length) | 0] : ' ');
         }).join('');
-        if (f++ > total) { clearInterval(id); el.textContent = final; }
+        if (f++ > total) { clearInterval(id); el.textContent = final; el.__decoding = false; }
       }, 1000 / 32);
     }
 
@@ -284,13 +402,13 @@
       if (!cv) return;
       var cx = cv.getContext('2d');
       var G = '01<>/\\[]{}*#$%&@ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉ';
-      var W, H, cols, CW = 15;
+      var W, H, cols, CW = 10;
       function size() {
         W = cv.width = window.innerWidth;
         H = cv.height = window.innerHeight;
         cols = [];
         for (var i = 0; i < Math.ceil(W / CW); i++) {
-          cols.push({ y: Math.random() * -H, sp: 1.6 + Math.random() * 4, len: 5 + Math.random() * 16 });
+          cols.push({ y: Math.random() * -H, sp: 1.6 + Math.random() * 4, len: 5 + Math.random() * 24 });
         }
       }
       size();
