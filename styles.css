@@ -20,7 +20,7 @@
 body{
   background:var(--void);
   color:var(--bone);
-  font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-family:'Exo 2',system-ui,sans-serif;
   line-height:1.6;
   overflow-x:hidden;
 }
@@ -37,10 +37,23 @@ img{max-width:100%;display:block}
 body.booting{overflow:hidden;height:100vh}
 #pre{position:fixed;inset:0;z-index:200;background:var(--void);
   display:flex;flex-direction:column;justify-content:center;padding:0 6vw;overflow:hidden}
+
+/* ═══ CSS-ONLY FAILSAFE ═══
+   If JavaScript never runs (blocked, errored, slow CDN), these
+   pure-CSS animations force the loading panels to disappear and
+   the page to become scrollable after 4s — with zero JS. When JS
+   works normally it hides these elements first, so the user never
+   sees the failsafe. This guarantees the page can NEVER stay blank. */
+@keyframes fs-hide{to{opacity:0;visibility:hidden}}
+@keyframes fs-scroll{to{overflow:auto;height:auto}}
+#pre{animation:fs-hide .5s linear 4s forwards}
+.shut{animation:fs-hide .5s linear 4s forwards}
+body.booting{animation:fs-scroll 0s linear 4.5s forwards}
+
 .pre-inner{max-width:1180px;margin:0 auto;width:100%;position:relative}
 .pre-tag{font-size:.64rem;letter-spacing:.34em;text-transform:uppercase;
   color:var(--muted);margin-bottom:1.6rem}
-.pre-word{font-family:'Archivo Black',sans-serif;font-size:clamp(2rem,7.5vw,6rem);
+.pre-word{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:clamp(2rem,7.5vw,6rem);
   line-height:.88;color:var(--white);text-transform:uppercase;letter-spacing:-.03em;position:relative}
 .pre-word::before,.pre-word::after{content:attr(data-t);position:absolute;inset:0;z-index:-1}
 .pre-word::before{color:var(--hot);transform:translate(-3px,2px);opacity:.8}
@@ -64,11 +77,11 @@ body.booting{overflow:hidden;height:100vh}
 #scan{position:fixed;inset:0;z-index:60;pointer-events:none;
   background:repeating-linear-gradient(180deg,transparent 0 2px,rgba(0,0,0,.20) 2px 4px)}
 #roll{position:fixed;left:0;width:100%;height:120px;z-index:61;pointer-events:none;
-  background:linear-gradient(180deg,transparent,rgba(255,46,31,.07),transparent)}
+  background:linear-gradient(180deg,transparent,rgba(255,46,31,.035),transparent)}
 #vig{position:fixed;inset:0;z-index:62;pointer-events:none;
   background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.75) 100%)}
 #burn{position:fixed;inset:0;z-index:59;pointer-events:none;background:var(--hot);opacity:0;mix-blend-mode:overlay}
-#rain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.18}
+#rain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.30}
 
 #screen{position:relative;z-index:2}
 
@@ -88,12 +101,12 @@ section{padding:clamp(5rem,12vh,9rem) 6vw}
 .t-brand{color:var(--wax);letter-spacing:.24em}
 .t-loc{color:var(--muted);margin-left:auto}
 
-.cmd{font-size:.75rem;color:var(--hot);margin-bottom:1.8rem;letter-spacing:.06em}
+.cmd{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.75rem;color:var(--hot);margin-bottom:1.8rem;letter-spacing:.06em}
 .caret{display:inline-block;width:.55em;height:1.1em;background:var(--hot);
   vertical-align:-.18em;margin-left:.2em}
 
-h1{font-family:'Archivo Black',sans-serif;font-size:clamp(2.2rem,8vw,6.5rem);
-  line-height:.86;letter-spacing:-.03em;color:var(--white);text-transform:uppercase}
+h1{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:clamp(2.2rem,8vw,6.5rem);
+  line-height:.9;letter-spacing:-.01em;color:var(--white);text-transform:uppercase}
 .ln{display:block;overflow:hidden}
 .ln>span{display:block;position:relative}
 .ln>span::before,.ln>span::after{content:attr(data-t);position:absolute;inset:0;z-index:-1}
@@ -102,6 +115,17 @@ h1{font-family:'Archivo Black',sans-serif;font-size:clamp(2.2rem,8vw,6.5rem);
 h1.hit .ln>span::before{transform:translate(-9px,3px);opacity:1}
 h1.hit .ln>span::after{transform:translate(9px,-3px);opacity:.85}
 .slice{position:absolute;left:0;width:100%;background:var(--void);z-index:3;display:none}
+
+/* ═══ DISTORTED-STATE SCRAMBLE ═══
+   During a glitch, some middle letters are swapped for random
+   symbols/numbers wrapped in <i class="gl">. They flash red and
+   cycle fast, then freeze, then the original text is restored.
+   No font swap — headings stay Chakra Petch throughout. */
+i.gl{font-style:normal;color:var(--hot);text-shadow:0 0 8px rgba(255,46,31,.55)}
+/* while the hero is scrambling, hide its RGB ghosts so they
+   don't show the un-scrambled word behind the red symbols */
+h1.scrambling .ln>span::before,
+h1.scrambling .ln>span::after{opacity:0 !important}
 
 .lede{margin-top:2.4rem;max-width:60ch;font-size:.92rem;font-weight:300;line-height:2.05}
 .lede p{position:relative;padding-left:1.5rem}
@@ -115,13 +139,13 @@ h1.hit .ln>span::after{transform:translate(9px,-3px);opacity:.85}
 /* ═══ TICKER ═══ */
 .tick{border-top:1px solid rgba(255,46,31,.35);border-bottom:1px solid rgba(255,46,31,.35);
   background:rgba(255,46,31,.05);padding:.8rem 0;overflow:hidden;white-space:nowrap;display:flex}
-.tick p{font-size:.68rem;letter-spacing:.26em;padding-right:2.5rem;flex-shrink:0;
+.tick p{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.68rem;letter-spacing:.26em;padding-right:2.5rem;flex-shrink:0;
   color:var(--hot);text-transform:uppercase}
 .tick p i{color:var(--wax);font-style:normal}
 
 /* ═══ SECTION HEADINGS ═══ */
 .lead{display:flex;align-items:center;gap:1.2rem;margin-bottom:3rem;flex-wrap:wrap}
-.lead h2{font-family:'Archivo Black',sans-serif;font-size:clamp(1.1rem,2.8vw,1.9rem);
+.lead h2{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:clamp(1.1rem,2.8vw,1.9rem);
   color:var(--white);text-transform:uppercase;letter-spacing:-.01em}
 .lead .rule{flex:1;height:2px;background:linear-gradient(90deg,var(--hot),rgba(255,46,31,0));min-width:40px}
 
@@ -147,7 +171,7 @@ h1.hit .ln>span::after{transform:translate(9px,-3px);opacity:.85}
 .proj:hover .glyph path,.proj:hover .glyph circle,
 .proj:hover .glyph line,.proj:hover .glyph rect{stroke:var(--wax)}
 
-.proj h3{font-family:'Archivo Black',sans-serif;font-size:clamp(1.05rem,2.4vw,1.55rem);
+.proj h3{font-family:'Chakra Petch',sans-serif;font-weight:600;font-size:clamp(1.05rem,2.4vw,1.55rem);
   color:var(--white);text-transform:uppercase;line-height:1.1;letter-spacing:-.01em;transition:color .3s}
 .proj:hover h3{color:var(--hot)}
 .p-body>p{font-size:.84rem;font-weight:300;color:var(--muted);margin-top:.55rem;max-width:52ch;line-height:1.85}
@@ -163,14 +187,14 @@ h1.hit .ln>span::after{transform:translate(9px,-3px);opacity:.85}
 
 /* ═══ STACK ═══ */
 .stack{display:grid;gap:2.2rem}
-.stack h3{font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;color:var(--hot);
+.stack h3{font-family:'Chakra Petch',sans-serif;font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;color:var(--hot);
   margin-bottom:1rem;font-weight:400}
 .stack ul{list-style:none;font-size:.88rem;font-weight:300;line-height:2.2;color:var(--bone)}
 .stack li::before{content:'/ ';color:var(--hot)}
 
 /* ═══ CONTACT ═══ */
 .contact{min-height:75svh;display:flex;flex-direction:column;justify-content:center}
-.say{font-family:'Archivo Black',sans-serif;font-size:clamp(1.7rem,5.5vw,4rem);line-height:.94;
+.say{font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:clamp(1.7rem,5.5vw,4rem);line-height:.94;
   color:var(--white);text-decoration:none;display:inline-block;text-transform:uppercase;
   word-break:break-word;letter-spacing:-.02em;transition:color .3s}
 .say:hover{color:var(--hot)}
